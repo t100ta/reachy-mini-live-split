@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# uv
+.python-version
+
+# 設定（実環境値を含む可能性があるため）
+config/app.toml
+config/motions.toml
+
+# ログ
+logs/*.jsonl
+logs/*.log
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# テスト
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Claude Code
+.claude/
