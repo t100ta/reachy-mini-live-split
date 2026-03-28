@@ -1,0 +1,25 @@
+[livesplit]
+transport = "ws"
+host = "127.0.0.1"
+port = 16834
+poll_interval_ms = 200
+comparison = "Personal Best"
+
+[thresholds]
+ahead_seconds = -1.5
+behind_seconds = 1.5
+pace_debounce_ms = 1200
+motion_cooldown_ms = 2000
+impulse_cooldown_ms = 500
+split_priority_ms = 1500
+ready_duration_ms = 1200
+finished_duration_ms = 2500
+
+[reachy]
+enabled = true
+dry_run = false
+host = "reachy-mini.local"
+
+[logging]
+level = "INFO"
+jsonl_path = "logs/session.jsonl"

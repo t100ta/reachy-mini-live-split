@@ -1,0 +1,39 @@
+[motions.idle_pose]
+enabled = true
+duration_ms = 0
+
+[motions.ready_pose]
+enabled = true
+duration_ms = 1200
+
+[motions.running_neutral_pose]
+enabled = true
+duration_ms = 0
+
+[motions.running_ahead_pose]
+enabled = true
+duration_ms = 0
+
+[motions.running_behind_pose]
+enabled = true
+duration_ms = 0
+
+[motions.split_good_nod]
+enabled = true
+duration_ms = 900
+
+[motions.split_bad_droop]
+enabled = true
+duration_ms = 1000
+
+[motions.reset_sigh]
+enabled = true
+duration_ms = 1200
+
+[motions.finish_celebrate]
+enabled = true
+duration_ms = 2500
+
+[motions.disconnected_pose]
+enabled = true
+duration_ms = 0
