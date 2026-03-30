@@ -7,9 +7,10 @@ name = "reachy-livesplit"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "openai>=2.30.0",
-    "pygame>=2.6.1",
     "websocket-client>=1.9.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "openai>=1.0",
 ]
 
 # reachy_mini は PyPI 経由ではなく Reachy Mini 公式の手順でインストールする。
