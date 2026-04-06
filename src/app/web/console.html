@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reachy Mini Console</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: transparent;
+    font-family: 'Segoe UI', sans-serif;
+    color: #fff;
+    width: 1920px;
+    height: 180px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+  }
+
+  #container {
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.65);
+    border-top: 2px solid rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    gap: 32px;
+    transition: background 0.3s, opacity 0.5s;
+  }
+  #container.idle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #container.flash-good { background: rgba(34, 197, 94, 0.55); }
+  #container.flash-bad  { background: rgba(239, 68, 68, 0.55); }
+  #container.flash-reset { background: rgba(251, 191, 36, 0.45); }
+
+  #icon {
+    font-size: 72px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  #icon.talking { animation: bob 0.3s ease-in-out infinite alternate; }
+  @keyframes bob {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-6px); }
+  }
+
+  #comment-area {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #comment {
+    font-size: 40px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transition: opacity 0.4s;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+  #comment.visible { opacity: 1; }
+
+  #event-log {
+    font-size: 20px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #state-badge {
+    flex-shrink: 0;
+    font-size: 18px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    white-space: nowrap;
+  }
+
+  #delta-badge {
+    flex-shrink: 0;
+    font-size: 28px;
+    font-weight: 700;
+    min-width: 120px;
+    text-align: right;
+  }
+  .delta-ahead { color: #4ade80; }
+  .delta-behind { color: #f87171; }
+
+  #audio-activate {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    padding: 6px 14px;
+    background: rgba(251, 191, 36, 0.85);
+    color: #000;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 9999;
+  }
+  #audio-activate.hidden { display: none; }
+  @keyframes flash-btn {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(1.15); }
+  }
+</style>
+</head>
+<body>
+<button id="audio-activate" onclick="activateAudio()">🔊 クリックして音声を有効化</button>
+<div id="container" class="idle">
+  <div id="icon">🤖</div>
+  <div id="comment-area">
+    <div id="comment"></div>
+    <div id="event-log">接続待機中...</div>
+  </div>
+  <div id="state-badge">--</div>
+  <div id="delta-badge">--</div>
+</div>
+
+<script>
+  const icon      = document.getElementById('icon');
+  const comment   = document.getElementById('comment');
+  const eventLog  = document.getElementById('event-log');
+  const stateBadge = document.getElementById('state-badge');
+  const deltaBadge = document.getElementById('delta-badge');
+  const container = document.getElementById('container');
+
+  let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let commentTimer = null;
+  let idleTimer = null;
+  let ws = null;
+
+  function wakeContainer() {
+    container.classList.remove('idle');
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => container.classList.add('idle'), 12000);
+  }
+
+  function activateAudio() {
+    audioCtx.resume().then(() => {
+      document.getElementById('audio-activate').classList.add('hidden');
+    });
+  }
+
+  // OBS などユーザー操作不要な環境では自動で resume を試みる
+  audioCtx.resume().then(() => {
+    document.getElementById('audio-activate').classList.add('hidden');
+  });
+
+  const EVENT_LABELS = {
+    run_started:   '▶ スタート',
+    split_good:    '✓ ナイススプリット',
+    split_bad:     '✗ スプリット遅れ',
+    run_reset:     '↩ リセット',
+    run_finished:  '🏁 フィニッシュ',
+    split_undo:    '↩ アンドゥ',
+    pace_ahead:    '↑ ペース良好',
+    pace_behind:   '↓ ペース遅れ',
+  };
+
+  const STATE_LABELS = {
+    idle:             '待機',
+    running_neutral:  '走行中',
+    running_ahead:    '走行中 ▲',
+    running_behind:   '走行中 ▼',
+    finished:         '完走',
+    disconnected:     '切断',
+    safe_mode:        'セーフ',
+    paused:           '一時停止',
+  };
+
+  function flashContainer(cls) {
+    container.classList.remove('flash-good', 'flash-bad', 'flash-reset');
+    container.classList.add(cls);
+    setTimeout(() => container.classList.remove(cls), 800);
+  }
+
+  function showComment(text) {
+    comment.textContent = text;
+    comment.classList.add('visible');
+    if (commentTimer) clearTimeout(commentTimer);
+    commentTimer = setTimeout(() => comment.classList.remove('visible'), 8000);
+  }
+
+  function formatDelta(delta) {
+    if (delta == null) return '--';
+    const sign = delta <= 0 ? '-' : '+';
+    const abs = Math.abs(delta);
+    const m = Math.floor(abs / 60);
+    const s = (abs % 60).toFixed(2).padStart(5, '0');
+    return `${sign}${m > 0 ? m + ':' : ''}${s}`;
+  }
+
+  async function playAudio(url) {
+    try {
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      const resp = await fetch(url);
+      const buf = await resp.arrayBuffer();
+      const decoded = await audioCtx.decodeAudioData(buf);
+      const src = audioCtx.createBufferSource();
+      src.buffer = decoded;
+      src.connect(audioCtx.destination);
+      src.onended = () => {
+        icon.classList.remove('talking');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'audio_done' }));
+        }
+      };
+      icon.classList.add('talking');
+      src.start();
+    } catch (e) {
+      console.error('audio error:', e);
+      icon.classList.remove('talking');
+    }
+  }
+
+  function connect() {
+    const host = location.hostname || 'localhost';
+    ws = new WebSocket(`ws://${host}:${location.port || 8765}/ws`);
+
+    ws.onopen = () => {
+      eventLog.textContent = '接続しました';
+    };
+
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'event') {
+        wakeContainer();
+        const label = EVENT_LABELS[msg.name] || msg.name;
+        const split = msg.split_name ? ` [${msg.split_name}]` : '';
+        eventLog.textContent = label + split;
+
+        if (msg.name === 'split_good' || msg.name === 'run_finished') flashContainer('flash-good');
+        else if (msg.name === 'split_bad' || msg.name === 'split_undo') flashContainer('flash-bad');
+        else if (msg.name === 'run_reset') flashContainer('flash-reset');
+      }
+
+      if (msg.type === 'state') {
+        if (msg.state !== 'idle' && msg.state !== 'disconnected') wakeContainer();
+        stateBadge.textContent = STATE_LABELS[msg.state] || msg.state;
+        if (msg.delta != null) {
+          const txt = formatDelta(msg.delta);
+          deltaBadge.textContent = txt;
+          deltaBadge.className = 'delta-badge ' + (msg.delta <= 0 ? 'delta-ahead' : 'delta-behind');
+        }
+      }
+
+      if (msg.type === 'play_audio') {
+        if (msg.text) showComment(msg.text);
+        if (audioCtx.state === 'suspended') {
+          const btn = document.getElementById('audio-activate');
+          btn.classList.remove('hidden');
+          btn.style.animation = 'none';
+          btn.offsetHeight; // reflow
+          btn.style.animation = 'flash-btn 0.4s ease-in-out 3';
+        }
+        playAudio(msg.url);
+      }
+    };
+
+    ws.onclose = () => {
+      eventLog.textContent = '切断 — 再接続中...';
+      setTimeout(connect, 3000);
+    };
+  }
+
+  connect();
+</script>
+</body>
+</html>

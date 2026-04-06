@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import reachy_mini  # noqa: F401  — 未インストール時に ImportError を早期発生させる
+
 from app.motions.catalog import MotionDef
 from app.reachy.executor import BaseExecutor
 
@@ -120,6 +122,12 @@ def _dispatch(robot, emotions: RecordedMoves | None, motion: MotionDef) -> None:
         _goto(robot, yaw=-30, antennas=[0.9, 0.9], duration=0.3)
         _goto(robot, yaw=0, pitch=-8, antennas=[0.6, 0.6], duration=0.3)
         _goto(robot, pitch=0, antennas=[0.3, 0.3], duration=0.3)
+    elif name == "talking_pose":
+        _goto(robot, pitch=-5, antennas=[0.7, 0.3], duration=0.15)
+        _goto(robot, pitch=-3, antennas=[0.3, 0.7], duration=0.15)
+        _goto(robot, pitch=-5, antennas=[0.7, 0.3], duration=0.15)
+        _goto(robot, pitch=-3, antennas=[0.3, 0.7], duration=0.15)
+        _goto(robot, pitch=0,  antennas=[0.5, 0.5], duration=0.15)
     else:
         logger.warning("未定義のモーション: %s", name)
 

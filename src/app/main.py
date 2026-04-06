@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import queue as _queue
 import sys
 
 from app.app import run
@@ -81,14 +82,35 @@ def main(argv: list[str] | None = None) -> int:
     if cfg.logging.jsonl_path:
         event_log = EventLog(cfg.logging.jsonl_path)
 
+    # Web コンソール
+    event_bus = None
+    audio_done_queue: _queue.SimpleQueue | None = None
+    if cfg.web.enabled:
+        from app.web.bus import EventBus
+        from app.web.server import start_server
+        event_bus = EventBus()
+        audio_done_queue = _queue.SimpleQueue()
+        start_server(cfg.web, event_bus, audio_done_queue)
+
+    # TTS サービス
+    tts_service = None
+    if cfg.tts.enabled:
+        try:
+            from app.tts.service import TTSService
+            tts_service = TTSService(cfg.tts)
+        except Exception as exc:
+            logger.warning("TTS サービスの初期化に失敗しました（無効化）: %s", exc)
+
     logger.info(
-        "起動: host=%s port=%d dry_run=%s",
+        "起動: host=%s port=%d dry_run=%s web=%s tts=%s",
         cfg.livesplit.host,
         cfg.livesplit.port,
         cfg.reachy.dry_run,
+        cfg.web.enabled,
+        cfg.tts.enabled,
     )
 
-    run(transport, executor, cfg, event_log)
+    run(transport, executor, cfg, event_log, event_bus, tts_service, audio_done_queue)
     return 0
 
 

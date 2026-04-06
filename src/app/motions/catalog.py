@@ -81,6 +81,12 @@ CATALOG: dict[str, MotionDef] = {
         duration_ms=0,
         description="接続断時のポーズ。控えめ、ほぼ idle 同様。",
     ),
+    "talking_pose": MotionDef(
+        name="talking_pose",
+        is_impulse=True,
+        duration_ms=700,
+        description="TTS 再生中の話し中モーション。アンテナ交互動作で口パクを表現。",
+    ),
 }
 
 

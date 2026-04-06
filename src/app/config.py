@@ -1,8 +1,26 @@
 from __future__ import annotations
 
+import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+_ENV_VAR_RE = re.compile(r"^\$\{(\w+)\}$")
+
+
+def _expand(value: object) -> object:
+    """文字列値の `${VAR}` を環境変数に展開する。"""
+    if not isinstance(value, str):
+        return value
+    m = _ENV_VAR_RE.match(value)
+    if m:
+        return os.environ.get(m.group(1), "")
+    return value
+
+
+def _expand_dict(d: dict) -> dict:
+    return {k: _expand(v) for k, v in d.items()}
 
 
 @dataclass
@@ -46,12 +64,44 @@ class MotionEntry:
 
 
 @dataclass
+class WebConfig:
+    enabled: bool = False
+    host: str = "0.0.0.0"
+    port: int = 8765
+    audio_path: str = "logs/audio"
+
+
+@dataclass
+class TtsConfig:
+    enabled: bool = False
+    engine: str = "openai"            # "openai" | "coeiroink"
+    openai_api_key: str = ""
+    llm_model: str = "gpt-4o-mini"
+    tts_model: str = "tts-1"
+    tts_voice: str = "alloy"
+    coeiroink_url: str = "http://127.0.0.1:50032"
+    coeiroink_speaker_name: str = ""
+    coeiroink_style_name: str = ""
+    igdb_client_id: str = ""
+    igdb_client_secret: str = ""
+    game_cache_path: str = "logs/game_cache.json"
+    game_name: str = ""      # LiveSplit から取得できない場合の手動設定
+    category_name: str = ""  # 同上
+    comment_events: list[str] = field(default_factory=lambda: [
+        "run_started", "split_good", "split_bad", "run_finished", "run_reset"
+    ])
+    audio_path: str = "logs/audio"
+
+
+@dataclass
 class AppConfig:
     livesplit: LiveSplitConfig = field(default_factory=LiveSplitConfig)
     thresholds: ThresholdsConfig = field(default_factory=ThresholdsConfig)
     reachy: ReachyConfig = field(default_factory=ReachyConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     motions: dict[str, MotionEntry] = field(default_factory=dict)
+    web: WebConfig = field(default_factory=WebConfig)
+    tts: TtsConfig = field(default_factory=TtsConfig)
 
 
 def load_config(path: str | Path | None) -> AppConfig:
@@ -68,19 +118,25 @@ def load_config(path: str | Path | None) -> AppConfig:
     cfg = AppConfig()
 
     if ls := data.get("livesplit"):
-        cfg.livesplit = LiveSplitConfig(**{k: v for k, v in ls.items() if hasattr(LiveSplitConfig, k) or k in LiveSplitConfig.__dataclass_fields__})
+        cfg.livesplit = LiveSplitConfig(**{k: v for k, v in _expand_dict(ls).items() if k in LiveSplitConfig.__dataclass_fields__})
 
     if th := data.get("thresholds"):
-        cfg.thresholds = ThresholdsConfig(**{k: v for k, v in th.items() if k in ThresholdsConfig.__dataclass_fields__})
+        cfg.thresholds = ThresholdsConfig(**{k: v for k, v in _expand_dict(th).items() if k in ThresholdsConfig.__dataclass_fields__})
 
-    if re := data.get("reachy"):
-        cfg.reachy = ReachyConfig(**{k: v for k, v in re.items() if k in ReachyConfig.__dataclass_fields__})
+    if rc := data.get("reachy"):
+        cfg.reachy = ReachyConfig(**{k: v for k, v in _expand_dict(rc).items() if k in ReachyConfig.__dataclass_fields__})
 
     if lg := data.get("logging"):
-        cfg.logging = LoggingConfig(**{k: v for k, v in lg.items() if k in LoggingConfig.__dataclass_fields__})
+        cfg.logging = LoggingConfig(**{k: v for k, v in _expand_dict(lg).items() if k in LoggingConfig.__dataclass_fields__})
 
     if motions := data.get("motions"):
         for name, vals in motions.items():
-            cfg.motions[name] = MotionEntry(**{k: v for k, v in vals.items() if k in MotionEntry.__dataclass_fields__})
+            cfg.motions[name] = MotionEntry(**{k: v for k, v in _expand_dict(vals).items() if k in MotionEntry.__dataclass_fields__})
+
+    if web := data.get("web"):
+        cfg.web = WebConfig(**{k: v for k, v in _expand_dict(web).items() if k in WebConfig.__dataclass_fields__})
+
+    if tts := data.get("tts"):
+        cfg.tts = TtsConfig(**{k: v for k, v in _expand_dict(tts).items() if k in TtsConfig.__dataclass_fields__})
 
     return cfg
