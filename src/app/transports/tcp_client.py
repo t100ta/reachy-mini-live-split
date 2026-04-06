@@ -59,6 +59,16 @@ class TcpTransport(Transport):
                 )
                 time.sleep(self._retry_interval)
 
+    def _close_sock(self) -> None:
+        """ソケットを閉じて None にする。"""
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            except OSError:
+                pass
+            self._sock = None
+            self._buf = b""
+
     def send(self, command: str) -> None:
         if self._sock is None:
             raise ConnectionError("接続されていません")
@@ -66,7 +76,7 @@ class TcpTransport(Transport):
         try:
             self._sock.sendall(data)
         except OSError as exc:
-            self._sock = None
+            self._close_sock()
             raise ConnectionError(f"送信エラー: {exc}") from exc
 
     def recv_line(self) -> str:
@@ -76,10 +86,10 @@ class TcpTransport(Transport):
             try:
                 chunk = self._sock.recv(_RECV_BUFSIZE)
             except OSError as exc:
-                self._sock = None
+                self._close_sock()
                 raise ConnectionError(f"受信エラー: {exc}") from exc
             if not chunk:
-                self._sock = None
+                self._close_sock()
                 raise ConnectionError("接続が切断されました")
             self._buf += chunk
         line, self._buf = self._buf.split(b"\r\n", 1)
