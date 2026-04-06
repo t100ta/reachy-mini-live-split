@@ -23,3 +23,27 @@ host = "reachy-mini.local"
 [logging]
 level = "INFO"
 jsonl_path = "logs/session.jsonl"
+
+[web]
+enabled = false
+host = "0.0.0.0"
+port = 8765
+audio_path = "logs/audio"
+
+[tts]
+enabled = false
+engine = "openai"                       # "openai" | "coeiroink"
+openai_api_key = "${OPENAI_API_KEY}"
+llm_model = "gpt-4o-mini"
+tts_model = "tts-1"
+tts_voice = "alloy"
+coeiroink_url = "http://127.0.0.1:50032"
+coeiroink_speaker_name = "茅冬生すずな"
+coeiroink_style_name = "のーまる"
+igdb_client_id = "${IGDB_CLIENT_ID}"
+igdb_client_secret = "${IGDB_CLIENT_SECRET}"
+game_cache_path = "logs/game_cache.json"
+game_name = ""      # LiveSplit から取得できない場合に手動設定（例: "Skate Story"）
+category_name = ""  # 同上（例: "Any%"）
+comment_events = ["run_started", "split_good", "split_bad", "run_finished", "run_reset"]
+audio_path = "logs/audio"
