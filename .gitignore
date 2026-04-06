@@ -17,6 +17,8 @@ config/motions.toml
 # ログ
 logs/*.jsonl
 logs/*.log
+logs/audio/
+logs/game_cache.json
 
 # IDE
 .vscode/settings.json
