@@ -45,3 +45,25 @@ def poll_once(transport: Transport, cfg: AppConfig) -> LiveSplitSnapshot:
         snapshot.delta,
     )
     return snapshot
+
+
+def fetch_game_info(transport: Transport) -> tuple[str | None, str | None]:
+    """
+    ゲーム名とカテゴリ名を取得する。
+    未対応バージョンの LiveSplit Server では None を返す（接続は維持する）。
+    """
+
+    def safe_query(cmd: str) -> str | None:
+        try:
+            transport.send(cmd)
+            return transport.recv_line()
+        except Exception as exc:
+            logger.debug("LiveSplit コマンド %s は未対応または失敗: %s", cmd, exc)
+            return None
+
+    game_name = parse_optional_str(safe_query(commands.GET_GAME_NAME) or "")
+    # getgamename が失敗すると transport が切断されるので再接続後に試みる
+    if game_name is None and not transport.is_connected:
+        return None, None
+    category_name = parse_optional_str(safe_query(commands.GET_CATEGORY_NAME) or "")
+    return game_name, category_name

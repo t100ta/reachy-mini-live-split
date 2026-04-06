@@ -6,6 +6,8 @@ GET_CURRENT_SPLIT_NAME = "getcurrentsplitname"
 GET_CURRENT_TIMER_PHASE = "getcurrenttimerphase"
 GET_CURRENT_TIME = "getcurrenttime"
 GET_ATTEMPT_COUNT = "getattemptcount"
+GET_GAME_NAME = "getgamename"
+GET_CATEGORY_NAME = "getcategoryname"
 
 
 def get_delta(comparison: str = "Personal Best") -> str:
