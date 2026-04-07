@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Callable
 
 import reachy_mini  # noqa: F401  — 未インストール時に ImportError を早期発生させる
 
@@ -13,13 +14,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# インパルスモーション名 → emotions ライブラリのエントリ名
+# モーション名 → emotions ライブラリのエントリ名
 _EXPRESSION_MAP: dict[str, str] = {
+    # メインモーション
     "ready_pose": "enthusiastic1",
     "split_good_nod": "success1",
     "split_bad_droop": "displeased1",
     "reset_sigh": "frustrated1",
     "finish_celebrate": "success2",
+    # アイドルバリエーション
+    "idle_look": "attentive1",
+    "idle_nod": "attentive2",
+    "idle_curious": "calming1",
+    "idle_bored": "boredom1",
+    "idle_cheerful": "cheerful1",
+    "idle_amazed": "amazed1",
 }
 
 
@@ -68,25 +77,38 @@ class ReachyExecutor(BaseExecutor):
         except Exception as exc:
             logger.error("safe_pose の実行に失敗しました: %s", exc)
 
-    def execute(self, motion: MotionDef) -> None:
+    def execute(
+        self,
+        motion: MotionDef,
+        sound_cb: Callable[[Path], None] | None = None,
+    ) -> None:
         if self._robot is None:
             logger.error("Reachy に接続されていません")
             return
         try:
             logger.info("Reachy: motion=%s", motion.name)
-            _dispatch(self._robot, self._emotions, motion)
+            _dispatch(self._robot, self._emotions, motion, sound_cb)
         except Exception as exc:
             logger.error("モーション %s の実行に失敗しました: %s", motion.name, exc)
 
 
-def _dispatch(robot, emotions: RecordedMoves | None, motion: MotionDef) -> None:
+def _dispatch(
+    robot,
+    emotions: RecordedMoves | None,
+    motion: MotionDef,
+    sound_cb: Callable[[Path], None] | None = None,
+) -> None:
     name = motion.name
 
-    # インパルス系: emotions ライブラリを優先使用
+    # Expression マップにあるモーション: emotions ライブラリを使用
     if name in _EXPRESSION_MAP and emotions is not None:
         expr_name = _EXPRESSION_MAP[name]
         try:
-            robot.play_move(emotions.get(expr_name), sound=False)
+            move = emotions.get(expr_name)
+            # 音声コールバック: play_move の前に呼んでブラウザ再生を先行開始
+            if sound_cb is not None and move.sound_path is not None:
+                sound_cb(move.sound_path)
+            robot.play_move(move, sound=False)
             return
         except Exception as exc:
             logger.warning("Expression %s の再生に失敗、フォールバックします: %s", expr_name, exc)

@@ -14,6 +14,8 @@ impulse_cooldown_ms = 500
 split_priority_ms = 1500
 ready_duration_ms = 1200
 finished_duration_ms = 2500
+idle_variation_interval_ms = 45000  # 待機中アイドルモーションの発火間隔（ミリ秒）
+expression_sound_volume = 0.35      # Expression 音声の音量（0.0〜1.0）TTS より小さめに
 
 [reachy]
 enabled = true

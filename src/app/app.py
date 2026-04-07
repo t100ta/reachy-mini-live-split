@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import logging
 import queue as _queue
+import shutil
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from app.clock import now
@@ -50,6 +52,31 @@ def run(
     prev_snapshot: LiveSplitSnapshot | None = None
     tts_future: Future | None = None
     talking_until: float = 0.0
+
+    # Expression 音声をブラウザへ配信するコールバック
+    _expr_audio_dir = Path(cfg.web.audio_path)
+
+    def _sound_cb(sound_path: Path) -> None:
+        """Expression の WAV を logs/audio/ にコピーしてブラウザへ送信する。"""
+        if not event_bus:
+            return
+        if now() < talking_until:
+            # TTS 再生中は音声が重なるためスキップ
+            return
+        dest_name = f"expr_{sound_path.stem}.wav"
+        dest = _expr_audio_dir / dest_name
+        try:
+            if not dest.exists():
+                _expr_audio_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy(sound_path, dest)
+            event_bus.post({
+                "type": "play_audio",
+                "url": f"/audio/{dest_name}",
+                "volume": cfg.thresholds.expression_sound_volume,
+                "notify_done": False,
+            })
+        except Exception as exc:
+            logger.warning("Expression 音声の配信に失敗: %s", exc)
     cached_game_name: str | None = None
     cached_category_name: str | None = None
     game_name_supported: bool | None = None  # None=未確認, True=対応, False=未対応
@@ -203,7 +230,7 @@ def run(
                 motion = select_motion(state, events, cooldown, cfg, t)
                 if motion is not None:
                     cooldown.record(motion.name, t)
-                    executor.execute(motion)
+                    executor.execute(motion, _sound_cb)
                     session.record_motion()
 
                     delta = snapshot.delta if snapshot else None

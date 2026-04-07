@@ -203,7 +203,7 @@
     return `${sign}${m > 0 ? m + ':' : ''}${s}`;
   }
 
-  async function playAudio(url) {
+  async function playAudio(url, volume = 1.0, notifyDone = true) {
     try {
       if (audioCtx.state === 'suspended') await audioCtx.resume();
       const resp = await fetch(url);
@@ -211,18 +211,21 @@
       const decoded = await audioCtx.decodeAudioData(buf);
       const src = audioCtx.createBufferSource();
       src.buffer = decoded;
-      src.connect(audioCtx.destination);
+      const gain = audioCtx.createGain();
+      gain.gain.value = volume;
+      src.connect(gain);
+      gain.connect(audioCtx.destination);
       src.onended = () => {
-        icon.classList.remove('talking');
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        if (notifyDone) icon.classList.remove('talking');
+        if (notifyDone && ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'audio_done' }));
         }
       };
-      icon.classList.add('talking');
+      if (notifyDone) icon.classList.add('talking');
       src.start();
     } catch (e) {
       console.error('audio error:', e);
-      icon.classList.remove('talking');
+      if (notifyDone) icon.classList.remove('talking');
     }
   }
 
@@ -267,7 +270,9 @@
           btn.offsetHeight; // reflow
           btn.style.animation = 'flash-btn 0.4s ease-in-out 3';
         }
-        playAudio(msg.url);
+        const volume = msg.volume ?? 1.0;
+        const notifyDone = msg.notify_done ?? true;
+        playAudio(msg.url, volume, notifyDone);
       }
     };
 

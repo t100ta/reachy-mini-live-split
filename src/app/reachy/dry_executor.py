@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from typing import Callable
 
 from app.motions.catalog import MotionDef
 from app.reachy.executor import BaseExecutor
@@ -17,7 +19,11 @@ class DryExecutor(BaseExecutor):
     def disconnect(self) -> None:
         logger.info("[DryRun] Reachy 切断をスキップ（dry-run モード）")
 
-    def execute(self, motion: MotionDef) -> None:
+    def execute(
+        self,
+        motion: MotionDef,
+        sound_cb: Callable[[Path], None] | None = None,
+    ) -> None:
         print(f"[Motion] {motion.name}")
         logger.info("[DryRun] Motion: %s", motion.name)
 
