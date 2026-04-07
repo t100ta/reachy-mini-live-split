@@ -42,6 +42,8 @@ class ThresholdsConfig:
     split_priority_ms: int = 1500
     ready_duration_ms: int = 1200
     finished_duration_ms: int = 2500
+    idle_variation_interval_ms: int = 45_000
+    expression_sound_volume: float = 0.35
 
 
 @dataclass

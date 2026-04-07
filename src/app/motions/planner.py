@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 
 from app.clock import now as _now
 from app.config import AppConfig
@@ -16,11 +17,22 @@ from app.domain.events import (
     SPLIT_UNDO,
 )
 from app.domain.state_machine import RuntimeState
-from app.motions.catalog import CATALOG, MotionDef
+from app.motions.catalog import CATALOG, IDLE_VARIATIONS, MotionDef
 from app.motions.cooldown import CooldownTracker
 from app.types import HighLevelState
 
 logger = logging.getLogger(__name__)
+
+# 最後にアイドルバリエーションを再生した時刻（モジュールレベルで保持）
+_last_idle_variation_at: float = 0.0
+
+# アイドルバリエーションを挟む対象の状態
+_IDLE_VARIATION_STATES = frozenset({
+    HighLevelState.IDLE,
+    HighLevelState.RUNNING_NEUTRAL,
+    HighLevelState.RUNNING_AHEAD,
+    HighLevelState.RUNNING_BEHIND,
+})
 
 # 状態 → 継続ポーズのマッピング
 _STATE_TO_POSE: dict[HighLevelState, str] = {
@@ -80,9 +92,40 @@ def select_motion(
         if event_name in event_names:
             return _get_if_available(motion_name, cooldown, cfg, t)
 
-    # 3. 継続ポーズ
+    # 3. アイドルバリエーション（一定時間操作なしの場合にランダム再生）
+    if state.state in _IDLE_VARIATION_STATES and t > state.impulse_until:
+        variation = _maybe_idle_variation(cooldown, cfg, t)
+        if variation is not None:
+            return variation
+
+    # 4. 継続ポーズ
     pose_name = _STATE_TO_POSE.get(state.state, "idle_pose")
     return _get_if_available(pose_name, cooldown, cfg, t)
+
+
+def _maybe_idle_variation(
+    cooldown: CooldownTracker,
+    cfg: AppConfig,
+    t: float,
+) -> MotionDef | None:
+    """インターバルが経過していればランダムなアイドルバリエーションを返す。"""
+    global _last_idle_variation_at
+    interval_s = cfg.thresholds.idle_variation_interval_ms / 1000.0
+    if (t - _last_idle_variation_at) < interval_s:
+        return None
+
+    candidates = [
+        v for v in IDLE_VARIATIONS
+        if cooldown.can_execute(v.name, is_impulse=True, t=t)
+        and (cfg.motions.get(v.name) is None or cfg.motions[v.name].enabled)
+    ]
+    if not candidates:
+        return None
+
+    chosen = random.choice(candidates)
+    _last_idle_variation_at = t
+    logger.debug("アイドルバリエーション選択: %s", chosen.name)
+    return chosen
 
 
 def _get_if_available(

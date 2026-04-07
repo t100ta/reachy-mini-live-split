@@ -87,7 +87,53 @@ CATALOG: dict[str, MotionDef] = {
         duration_ms=700,
         description="TTS 再生中の話し中モーション。アンテナ交互動作で口パクを表現。",
     ),
+    "idle_look": MotionDef(
+        name="idle_look",
+        is_impulse=True,
+        duration_ms=1900,
+        description="attentive1: 注目している様子。",
+    ),
+    "idle_nod": MotionDef(
+        name="idle_nod",
+        is_impulse=True,
+        duration_ms=1200,
+        description="attentive2: うなずいて注目。",
+    ),
+    "idle_curious": MotionDef(
+        name="idle_curious",
+        is_impulse=True,
+        duration_ms=2000,
+        description="calming1: 落ち着いて観察している。",
+    ),
+    "idle_bored": MotionDef(
+        name="idle_bored",
+        is_impulse=True,
+        duration_ms=2500,
+        description="boredom1: 少し退屈そう。",
+    ),
+    "idle_cheerful": MotionDef(
+        name="idle_cheerful",
+        is_impulse=True,
+        duration_ms=1800,
+        description="cheerful1: 元気よく待機。",
+    ),
+    "idle_amazed": MotionDef(
+        name="idle_amazed",
+        is_impulse=True,
+        duration_ms=2200,
+        description="amazed1: 驚いた様子。",
+    ),
 }
+
+# 待機中にランダム再生するアイドルバリエーションモーションの一覧
+IDLE_VARIATIONS: list[MotionDef] = [
+    CATALOG["idle_look"],
+    CATALOG["idle_nod"],
+    CATALOG["idle_curious"],
+    CATALOG["idle_bored"],
+    CATALOG["idle_cheerful"],
+    CATALOG["idle_amazed"],
+]
 
 
 def get_motion(name: str) -> MotionDef | None:
