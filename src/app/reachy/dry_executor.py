@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from app.motions.catalog import MotionDef
 from app.reachy.executor import BaseExecutor
+
+if TYPE_CHECKING:
+    from app.motions.ambient import HeadTarget
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,12 @@ class DryExecutor(BaseExecutor):
     ) -> None:
         print(f"[Motion] {motion.name}")
         logger.info("[DryRun] Motion: %s", motion.name)
+
+    def goto_ambient(self, target: HeadTarget) -> None:
+        logger.debug(
+            "[DryRun] goto_ambient pitch=%.1f roll=%.1f yaw=%.1f ant=[%.2f, %.2f]",
+            target.pitch, target.roll, target.yaw, target.antenna_l, target.antenna_r,
+        )
 
     def safe_pose(self) -> None:
         print("[Motion] safe_pose")

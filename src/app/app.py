@@ -14,6 +14,7 @@ from app.domain.event_detector import detect_events
 from app.domain.state_machine import RuntimeState, set_disconnected, transition
 from app.livesplit.poller import fetch_game_info, poll_once
 from app.livesplit.snapshot import LiveSplitSnapshot
+from app.motions.ambient import AmbientMotionController
 from app.motions.catalog import CATALOG
 from app.motions.cooldown import CooldownTracker
 from app.motions.planner import select_motion
@@ -52,6 +53,8 @@ def run(
     prev_snapshot: LiveSplitSnapshot | None = None
     tts_future: Future | None = None
     talking_until: float = 0.0
+    ambient = AmbientMotionController(cfg.ambient)
+    ambient_resume_at: float = 0.0  # インパルス後のアンビエント一時停止終了時刻
 
     # Expression 音声をブラウザへ配信するコールバック
     _expr_audio_dir = Path(cfg.web.audio_path)
@@ -228,10 +231,14 @@ def run(
                     session.record_motion()
             else:
                 motion = select_motion(state, events, cooldown, cfg, t)
-                if motion is not None:
+
+                if motion is not None and motion.is_impulse:
+                    # インパルスモーション（イベントリアクション・アイドルバリエーション）
                     cooldown.record(motion.name, t)
                     executor.execute(motion, _sound_cb)
                     session.record_motion()
+                    # インパルス後しばらくアンビエントを止め、モーションの余韻を残す
+                    ambient_resume_at = now() + cfg.ambient.post_impulse_pause
 
                     delta = snapshot.delta if snapshot else None
                     print(f"[State] {state.state.value}")
@@ -248,6 +255,40 @@ def run(
                             state.state.value,
                             snapshot.delta if snapshot else None,
                         )
+
+                elif (
+                    cfg.ambient.enabled
+                    and t >= ambient_resume_at       # インパルス後の待機期間を過ぎた
+                    and t >= state.impulse_until     # スプリット優先ウィンドウ外
+                    and state.state not in (HighLevelState.DISCONNECTED, HighLevelState.SAFE_MODE)
+                ):
+                    # アンビエントモード: 連続的なターゲット姿勢を送信
+                    ambient.notify_events(events, t)
+                    target = ambient.compute_target(state, t)
+                    executor.goto_ambient(target)
+
+                else:
+                    # アンビエント無効時: プランナーの継続ポーズをそのまま使う
+                    if motion is not None:
+                        cooldown.record(motion.name, t)
+                        executor.execute(motion, _sound_cb)
+                        session.record_motion()
+
+                        delta = snapshot.delta if snapshot else None
+                        print(f"[State] {state.state.value}")
+                        if delta is not None:
+                            sign = "-" if delta < 0 else "+"
+                            abs_d = abs(delta)
+                            mins = int(abs_d // 60)
+                            secs = abs_d % 60
+                            print(f"[Delta] {sign}{mins:02d}:{secs:05.2f}")
+
+                        if event_log and motion:
+                            event_log.log_motion(
+                                motion,
+                                state.state.value,
+                                snapshot.delta if snapshot else None,
+                            )
 
             prev_snapshot = snapshot
             _sleep_remaining(loop_start, poll_interval)

@@ -96,6 +96,32 @@ class TtsConfig:
 
 
 @dataclass
+class AmbientConfig:
+    enabled: bool = True
+    strength: float = 1.0           # グローバル強度倍率 (0.0–1.0)
+    update_duration: float = 0.4    # goto_target に渡す duration (秒)
+    # idle_breathing
+    breathing_amplitude: float = 2.5    # ピッチ最大振れ幅 (degree)
+    breathing_period: float = 4.0       # 1周期の秒数
+    # curiosity_glance
+    glance_interval_min: float = 30.0   # グランス間隔の最小秒数
+    glance_interval_max: float = 60.0   # グランス間隔の最大秒数
+    glance_amplitude: float = 5.0       # ヨー最大振れ幅 (degree)
+    glance_return_duration: float = 1.2 # グランス1回分の合計秒数
+    # running_sway: RUNNING 中の緩やかな pitch 揺れ（idle_breathing より小さく遅い）
+    running_sway_amplitude: float = 1.5  # degree
+    running_sway_period: float = 6.0     # 秒
+    # thinking_tilt
+    tilt_amplitude: float = 3.0          # ロール最大振れ幅 (degree)
+    tilt_period: float = 8.0             # 1周期の秒数
+    # afterglow / sag
+    afterglow_duration: float = 3.0      # SPLIT_GOOD 後のアフターグロー秒数
+    sag_duration: float = 2.0            # SPLIT_BAD 後のサグ秒数
+    # インパルスモーション後にアンビエントを一時停止する秒数
+    post_impulse_pause: float = 0.8
+
+
+@dataclass
 class AppConfig:
     livesplit: LiveSplitConfig = field(default_factory=LiveSplitConfig)
     thresholds: ThresholdsConfig = field(default_factory=ThresholdsConfig)
@@ -104,6 +130,7 @@ class AppConfig:
     motions: dict[str, MotionEntry] = field(default_factory=dict)
     web: WebConfig = field(default_factory=WebConfig)
     tts: TtsConfig = field(default_factory=TtsConfig)
+    ambient: AmbientConfig = field(default_factory=AmbientConfig)
 
 
 def load_config(path: str | Path | None) -> AppConfig:
@@ -140,5 +167,8 @@ def load_config(path: str | Path | None) -> AppConfig:
 
     if tts := data.get("tts"):
         cfg.tts = TtsConfig(**{k: v for k, v in _expand_dict(tts).items() if k in TtsConfig.__dataclass_fields__})
+
+    if ambient := data.get("ambient"):
+        cfg.ambient = AmbientConfig(**{k: v for k, v in _expand_dict(ambient).items() if k in AmbientConfig.__dataclass_fields__})
 
     return cfg

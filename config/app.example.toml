@@ -49,3 +49,27 @@ game_name = ""      # LiveSplit から取得できない場合に手動設定（
 category_name = ""  # 同上（例: "Any%"）
 comment_events = ["run_started", "split_good", "split_bad", "run_finished", "run_reset"]
 audio_path = "logs/audio"
+
+[ambient]
+enabled = true
+strength = 1.0            # アンビエント強度倍率（0.0 で完全無効、1.0 で最大）
+update_duration = 0.4     # goto_target に渡す duration（秒）。poll_interval に合わせること
+# idle_breathing: 待機中の呼吸感ピッチ振動
+breathing_amplitude = 2.5   # degree
+breathing_period = 4.0      # 秒
+# curiosity_glance: 数十秒に1回の小さなヨー振り
+glance_interval_min = 30.0  # 秒
+glance_interval_max = 60.0  # 秒
+glance_amplitude = 5.0      # degree
+glance_return_duration = 1.2  # グランス1往復の秒数
+# running_sway: RUNNING 中の緩やかな pitch 揺れ（breathing より小さく遅い）
+running_sway_amplitude = 1.5  # degree（breathing_amplitude より小さく）
+running_sway_period = 6.0     # 秒（breathing_period より長く）
+# thinking_tilt: RUNNING_BEHIND 時のわずかな首傾き
+tilt_amplitude = 3.0          # degree
+tilt_period = 8.0             # 秒
+# afterglow / sag: スプリット直後の余韻
+afterglow_duration = 3.0      # SPLIT_GOOD 後に続く秒数
+sag_duration = 2.0            # SPLIT_BAD 後に続く秒数
+# インパルスモーション後にアンビエントを止める秒数（余韻を残す）
+post_impulse_pause = 0.8

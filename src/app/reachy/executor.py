@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from app.motions.catalog import MotionDef
+
+if TYPE_CHECKING:
+    from app.motions.ambient import HeadTarget
 
 
 class BaseExecutor(ABC):
@@ -20,6 +23,13 @@ class BaseExecutor(ABC):
 
         sound_cb: Expressions に音声ファイルがある場合に呼ばれるコールバック。
                   引数は WAV ファイルの Path。ブラウザ音声配信に使用する。
+        """
+
+    @abstractmethod
+    def goto_ambient(self, target: HeadTarget) -> None:
+        """アンビエントモーションのターゲット姿勢を送信する。
+
+        Impulse モーションとは異なり、毎ループ呼ばれる連続的な位置指令。
         """
 
     @abstractmethod

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable
 
 import reachy_mini  # noqa: F401  — 未インストール時に ImportError を早期発生させる
 
+from app.motions.ambient import HeadTarget
 from app.motions.catalog import MotionDef
 from app.reachy.executor import BaseExecutor
 
@@ -76,6 +77,21 @@ class ReachyExecutor(BaseExecutor):
             )
         except Exception as exc:
             logger.error("safe_pose の実行に失敗しました: %s", exc)
+
+    def goto_ambient(self, target: HeadTarget) -> None:
+        if self._robot is None:
+            return
+        try:
+            _goto(
+                self._robot,
+                pitch=target.pitch,
+                roll=target.roll,
+                yaw=target.yaw,
+                antennas=[target.antenna_l, target.antenna_r],
+                duration=target.duration,
+            )
+        except Exception as exc:
+            logger.warning("goto_ambient 失敗: %s", exc)
 
     def execute(
         self,
